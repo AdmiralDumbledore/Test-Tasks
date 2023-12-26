@@ -1,0 +1,10 @@
+- hosts: host
+  become: true
+  gather_facts: false
+  roles:
+    - { role: roles/SSH }
+    - { role: roles/iptables }
+    - { role: roles/wireguard }
+    - { role: roles/dnsmasq }
+
+

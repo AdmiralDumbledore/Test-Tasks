@@ -1,0 +1,7 @@
+---
+# handlers file for VPN
+- name: Restart sshd
+  service:
+    name: sshd
+    state: restarted
+  listen: "setup port"
