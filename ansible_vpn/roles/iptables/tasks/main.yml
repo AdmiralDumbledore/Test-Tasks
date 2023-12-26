@@ -1,0 +1,56 @@
+---
+# - name: Check that the iptables.conf exists
+#   stat:
+#     path: /etc/sysconfig/iptables
+#   register: stat_result
+
+# - name: Save default state of the firewall in system file
+#   community.general.iptables_state:
+#     state: saved
+#     path: /etc/sysconfig/iptables
+#   when: not stat_result.stat.exists
+
+- name: Add ssh port
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ configured_port }}"
+    jump: ACCEPT    
+
+- name: Add wireguard port
+  iptables:
+    chain: INPUT
+    protocol: udp
+    destination_port: 51830
+    jump: ACCEPT    
+
+- name: Add DNS port
+  iptables:
+    chain: INPUT
+    protocol: udp
+    destination_port: 53
+    jump: ACCEPT   
+
+- name: Accept lo
+  ansible.builtin.iptables:
+    chain: INPUT
+    in_interface: lo
+    jump: ACCEPT
+
+- name: Accept RELATED,ESTABLISHED connections
+  iptables:
+    chain: INPUT
+    ctstate: RELATED,ESTABLISHED
+    jump: ACCEPT
+
+- name: Drop INPUT chain
+  iptables: 
+    chain: INPUT
+    policy: DROP
+# - name: Allow source SSH port
+#   ansible.builtin.iptables:
+#     chain: INPUT
+#     match_set: admin_hosts
+#     match_set_flags: src
+#     destination_port: 22
+#     jump: ALLOW

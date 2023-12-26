@@ -1,0 +1,33 @@
+---
+# tasks file for VPN
+- name: "Create .ssh directory"
+  file:
+    path: "/home/{{ ansible_user }}/.ssh"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: "Copy ssh-key"
+  copy:
+    src: id_rsa.pub
+    dest: "/home/{{ ansible_user }}/.ssh/authorized_keys"
+
+- name: Check does port configured
+  shell: grep -c "^Port" /etc/ssh/sshd_config || true
+  register: test_grep
+
+- name: add Port to sshd_config
+  lineinfile:
+    dest: /etc/ssh/sshd_config
+    line: Port {{ configured_port }}
+  when: test_grep.stdout == "0"
+
+- name: Setup alternate SSH port
+  lineinfile:
+    dest: "/etc/ssh/sshd_config"
+    regexp: "^Port"
+    line: "Port {{ configured_port }}"
+  notify: "setup port"
+
+
+

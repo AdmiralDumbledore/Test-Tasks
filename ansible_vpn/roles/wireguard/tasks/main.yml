@@ -1,0 +1,75 @@
+---
+# tasks file for wireguard
+- name: Update and upgrade apt packages
+  become: true
+  apt:
+    update_cache: yes
+    cache_valid_time: 86400
+
+- name: Install wireguard package
+  ansible.builtin.apt:
+    name: "wireguard"
+    state: present
+
+- name: Check if keys already exist
+  stat:
+    path: /etc/wireguard/privatekey
+  register: wg_key_exist
+
+- name: Enable ip_forwarding
+  shell: "echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf && sysctl -p"
+  when: not wg_key_exist.stat.exists
+
+- name: Generate new WG keys
+  shell: "wg genkey | tee /etc/wireguard/privatekey | wg pubkey | tee /etc/wireguard/publickey"
+  when: not wg_key_exist.stat.exists
+
+- name: Change file permissions
+  ansible.builtin.file:
+    path: /etc/wireguard/privatekey
+    mode: '600'
+
+- name: Load data
+  slurp:
+    src: /etc/wireguard/privatekey
+  register: wg_privatekey_b64
+
+- name: Decode data and store as fact 
+  set_fact:
+    wg_privatekey: "{{ wg_privatekey_b64.content | b64decode }}"
+  
+- name: Enable service wg-quick, and not touch the  state
+  service:
+    name: wg-quick@wg0.service
+    enabled: yes
+
+
+- name: Check if client keys already exist
+  stat:
+    path: /etc/wireguard/burdin_privatekey
+  register: wg_client_key_exist
+
+- name: Generate new WG client keys
+  shell: "wg genkey | tee /etc/wireguard/burdin_privatekey | wg pubkey | tee /etc/wireguard/burdin_publickey"
+  when: not wg_client_key_exist.stat.exists
+
+- name: Load data
+  slurp:
+    src: /etc/wireguard/burdin_publickey
+  register: wg_client_publickey_b64
+
+- name: Decode data and store as fact 
+  set_fact:
+    wg_client_publickey: "{{ wg_client_publickey_b64.content | b64decode }}"
+
+
+- name: Send wg0.conf to /etc/wireguard/wg0.conf
+  template:
+    src: wg0.conf
+    dest: /etc/wireguard/wg0.conf
+  notify: "setup wg"
+
+- name: Restart wg-quick
+  service:
+    name: wg-quick@wg0.service
+    state: started
